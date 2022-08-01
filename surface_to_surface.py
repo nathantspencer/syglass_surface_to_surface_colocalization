@@ -21,9 +21,9 @@ import pathlib
 
 # constants: modify as needed before running the script
 EXPERIMENT_NAME = 'default'
-PROJECT_PATH = 'C:/Users/emmak/Documents/surfacestest/surfacestest.syg'
+PROJECT_PATH = 'C:/syGlassProjects/VCNMended/VCNMended.syg'
 # in project units
-DISTANCE_THRESHOLD = 30
+DISTANCE_THRESHOLD = 200
 
 if __name__ == '__main__':
     # get the project object, meshes
@@ -34,7 +34,6 @@ if __name__ == '__main__':
     mesh_names = project.impl.GetMeshNamesAndSizes(EXPERIMENT_NAME)
     voxel_dimensions = project.get_voxel_dimensions()
     pv_read_meshes = []
-    project_meshes = []
     mean_distances_unsorted = []
     blacklist_meshes = []
     pairs = []
@@ -45,30 +44,42 @@ if __name__ == '__main__':
     # iterate through list of meshes
     for mesh_name in mesh_names:
         print('\nProcessing mesh: ' + mesh_name)
-        project.impl.ExportMeshOBJs(EXPERIMENT_NAME, mesh_name, str(MESH_PATH) + '/project_meshes/' + mesh_name)
+
+        mesh_path = str(MESH_PATH) + '/project_meshes/' + mesh_name
+        project.impl.ExportMeshOBJs(EXPERIMENT_NAME, mesh_name, mesh_path)
        
         # meshes take a second to export—here we wait for them
         while project.impl.GetMeshIOPercentage() != 100.0:
             time.sleep(0.1)
-       
+
+        trimesh_object = trimesh.load_mesh(mesh_path)
+        trimesh_splits = trimesh.graph.split(trimesh_object)
+
         # pyvista reads each mesh
-        pv_read_meshes.append(pv.read(str(MESH_PATH) + '/project_meshes/' + mesh_name))
-        project_meshes.append(mesh_name)
+        pv_read_mesh_group = []
+        component_id = 1
+        for connected_component in trimesh_splits:
+            name = mesh_name[:-4] + "_" + str(component_id) + ".obj"
+            path = str(MESH_PATH) + '/project_meshes/' + name
+            connected_component.export(path)
+            pv_read_mesh_group.append((name, pv.read(path)))
+            component_id = component_id + 1
+
+        pv_read_meshes.append(pv_read_mesh_group)
 
     # compare all meshes
     print('Making comparisons...')
-    i = 0
-    k = 1
-    while i < len(pv_read_meshes):
-        while k < len(pv_read_meshes):
-            closest_cells, closest_points = pv_read_meshes[k].find_closest_cell(pv_read_meshes[i].points, return_closest_point = True)
-            d_exact = np.linalg.norm(pv_read_meshes[i].points - closest_points, axis = 1)
-            mean_dist = np.mean(d_exact)
-            mean_distances_unsorted.append((project_meshes[i], project_meshes[k], mean_dist))
-            print('Comparison between ' + project_meshes[i] + ' and ' + project_meshes[k] + ': Complete')
-            k = k + 1
-        i = i + 1
-        k = i + 1
+    for pv_mesh_group_a in pv_read_meshes:
+        for pv_mesh_a in pv_mesh_group_a:
+            for pv_mesh_group_b in pv_read_meshes:
+                for pv_mesh_b in pv_mesh_group_b:
+                    if pv_mesh_group_a == pv_mesh_group_b:
+                        continue
+                    closest_cells, closest_points = pv_mesh_b[1].find_closest_cell(pv_mesh_a[1].points, return_closest_point = True)
+                    d_exact = np.linalg.norm(pv_mesh_a[1].points - closest_points, axis = 1)
+                    mean_dist = np.mean(d_exact)
+                    mean_distances_unsorted.append((pv_mesh_a[0], pv_mesh_b[0], mean_dist))
+                    print('Comparison between ' + pv_mesh_a[0] + ' and ' + pv_mesh_b[0] + ': Complete')
     
     # sort and then pair meshes
     print('Sorting...')
@@ -93,11 +104,12 @@ if __name__ == '__main__':
     centers_array = np.array(centers_list)
     project.set_distance_measurements(centers_array, EXPERIMENT_NAME)
 
-# check for orphaned meshes
-    for mesh in project_meshes:
-        if blacklist_meshes.count(mesh) == 0:
-            orphaned.append(mesh)
-            project.set_surface_color(mesh, (0, 0, 255, 1) , EXPERIMENT_NAME)
+    # check for orphaned meshes
+    for pv_mesh_group in pv_read_meshes:
+        for pv_mesh in pv_mesh_group:
+            if blacklist_meshes.count(pv_mesh[0]) == 0:
+                orphaned.append(pv_mesh[0])
+                project.set_surface_color(pv_mesh[0], (0, 0, 255, 1) , EXPERIMENT_NAME)
     print("Pairs: " + str(pairs))
     print("Orphaned: " + str(orphaned))
 
