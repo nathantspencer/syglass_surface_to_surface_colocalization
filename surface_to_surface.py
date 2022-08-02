@@ -93,6 +93,19 @@ if __name__ == '__main__':
         if (blacklist_meshes.count(sorted_dist[0]) == 0 and blacklist_meshes.count(sorted_dist[1]) == 0):
             if sorted_dist[2] <= DISTANCE_THRESHOLD:
                 pairs.append(sorted_dist)
+                
+                color_a = (0, 0, 0, 0)
+                color_b = (0, 0, 0, 0)
+
+                group_counter = 1
+                for pv_mesh_group in pv_read_meshes:
+                    for pv_mesh in pv_mesh_group:
+                        if pv_mesh[0] == sorted_dist[0]:
+                            color_a = (128 + (group_counter % 2) * 128, 128 + (group_counter % 4) * 128, 128 + (group_counter % 8) * 128)
+                        if pv_mesh[1] == sorted_dist[1]:
+                            color_b = (128 + (group_counter % 2) * 128, 128 + (group_counter % 4) * 128, 128 + (group_counter % 8) * 128)
+                    group_counter = group_counter + 1
+
                 project.set_surface_color(sorted_dist[0], (255, 0, 0, 1) , EXPERIMENT_NAME)
                 project.set_surface_color(sorted_dist[1], (0, 255, 0, 1) , EXPERIMENT_NAME)
                 blacklist_meshes.append(sorted_dist[0])
@@ -114,7 +127,7 @@ if __name__ == '__main__':
         for pv_mesh in pv_mesh_group:
             if blacklist_meshes.count(pv_mesh[0]) == 0:
                 orphaned.append(pv_mesh[0])
-                project.set_surface_color(pv_mesh[0], (0, 0, 255, 1) , EXPERIMENT_NAME)
+                project.set_surface_color(pv_mesh[0], (70, 70, 70, 1) , EXPERIMENT_NAME)
     print("Pairs: " + str(pairs))
     print("Orphaned: " + str(orphaned))
 
