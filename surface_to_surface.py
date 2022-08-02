@@ -40,6 +40,7 @@ if __name__ == '__main__':
     orphaned = []
     sorted_dists = []
     centers_list = []
+    new_surfaces_paths = []
 
     # iterate through list of meshes
     for mesh_name in mesh_names:
@@ -61,11 +62,15 @@ if __name__ == '__main__':
         for connected_component in trimesh_splits:
             name = mesh_name[:-4] + "_" + str(component_id) + ".obj"
             path = str(MESH_PATH) + '/project_meshes/' + name
+            new_surfaces_paths.append(path)
             connected_component.export(path)
             pv_read_mesh_group.append((name, pv.read(path)))
             component_id = component_id + 1
 
         pv_read_meshes.append(pv_read_mesh_group)
+
+    project.delete_all_surfaces()
+    project.import_meshes(new_surfaces_paths)
 
     # compare all meshes
     print('Making comparisons...')
